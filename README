@@ -1,0 +1,9 @@
+mysql> CREATE FUNCTION unserialize_php RETURNS STRING SONAME 'unserialize_php.so';
+mysql> select unserialize_php('O:8:"stdClass":2:{s:1:"a";s:4:"aaaa";s:1:"b";s:4:"bbbb";}', "$obj->a");
++-----------------------------------------------------------------------------------------+
+| unserialize_php('O:8:"stdClass":2:{s:1:"a";s:4:"aaaa";s:1:"b";s:4:"bbbb";}', "$obj->a") |
++-----------------------------------------------------------------------------------------+
+| aaaa                                                                                    |
++-----------------------------------------------------------------------------------------+
+1 row in set (0.00 sec)
+mysql> drop function unserialize_php;
