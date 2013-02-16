@@ -8,10 +8,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
+#include <php_embed.h>
 #include "pfc.h"
-
-#include "/mnt/ebs-AuthenseTestExt/home/namai/work/php-5.3.3/sapi/embed/php_embed.h"
-
 
 extern "C"{
 	my_bool unserialize_php_init(UDF_INIT *initid, UDF_ARGS *args, char *message);
@@ -22,7 +21,7 @@ my_bool unserialize_php_init(UDF_INIT *initid, UDF_ARGS *args, char *message)
 {
 	if (args->arg_count > 2)
 	{
-		strcpy(message, "too many argument: unserialize_php(php object string, php code). ex: $obj->name" );
+		strcpy(message, "too many argument: unserialize_php(php object string, php code). unserialized date is stored to $obj" );
 		return 1;
 	}
 
@@ -30,7 +29,7 @@ my_bool unserialize_php_init(UDF_INIT *initid, UDF_ARGS *args, char *message)
 			args->arg_type[0]==STRING_RESULT &&
 			args->arg_type[1]==STRING_RESULT))
 	{
-		strcpy(message, "unserialize_php(php object string, php code). ex: $obj->name" );
+		strcpy(message, "unserialize_php(php object string, php code). unserialized date is stored to $obj" );
 		return 1;
 	}
 
@@ -50,7 +49,6 @@ void unserialize_php_deinit(UDF_INIT *initid __attribute__((unused)))
 	delete value;
 }
 
-
 #define UNSERIALIZE_PHP_TARGET_STRING "unserializable_string"
 #define UNSERIALIZE_PHP_TARGET_OUTPUT_VARIABLE "output"
 #define UNSERIALIZE_PHP_TARGET_OBJECT "obj"
@@ -66,9 +64,11 @@ char *unserialize_php(UDF_INIT *initid, UDF_ARGS *args, char *result, unsigned l
 			sizeof(UNSERIALIZE_PHP_TARGET_STRING),
 			args->lengths[0]);
 
-	if(!pfc_evalf(__func__, "$%s=unserialize($%s);",
+	if(!pfc_evalf(__func__, "$%s=unserialize($%s); $%s=%s;",
 				UNSERIALIZE_PHP_TARGET_OBJECT,
-				UNSERIALIZE_PHP_TARGET_STRING
+				UNSERIALIZE_PHP_TARGET_STRING,
+				UNSERIALIZE_PHP_TARGET_OUTPUT_VARIABLE,
+				args->args[1]
 				))
 	{
 		*is_null = 1;
@@ -76,15 +76,6 @@ char *unserialize_php(UDF_INIT *initid, UDF_ARGS *args, char *result, unsigned l
 		return 0;
 	}
 	
-
-	if(!pfc_evalf(__func__, "$%s=%s;",
-				UNSERIALIZE_PHP_TARGET_OUTPUT_VARIABLE,
-				args->args[1])) {
-		*is_null = 1;
-		*error = 1;
-		return 0;
-	}
-
 	if (!pfc_get_string(UNSERIALIZE_PHP_TARGET_OUTPUT_VARIABLE,
 				value,
 				sizeof(UNSERIALIZE_PHP_TARGET_OUTPUT_VARIABLE))) {
