@@ -12,6 +12,14 @@
 #include <php_embed.h>
 #include "pfc.h"
 
+#ifdef DEBUG
+	#define DEBUG_MSG(msg) FILE *fp=fopen("/tmp/unserialize_php_debug","a+");\
+	fprintf(fp, msg); \
+	fclose(fp);
+#else
+	#define DEBUG_MSG(msg) ;
+#endif
+
 extern "C"{
 	my_bool unserialize_php_init(UDF_INIT *initid, UDF_ARGS *args, char *message);
 	char *unserialize_php(UDF_INIT *initid, UDF_ARGS *args, char *result, unsigned long *length, char *is_null, char *error);
@@ -64,32 +72,46 @@ char *unserialize_php(UDF_INIT *initid, UDF_ARGS *args, char *result, unsigned l
 			sizeof(UNSERIALIZE_PHP_TARGET_STRING),
 			args->lengths[0]);
 
-	if(!pfc_evalf(__func__, "$%s=unserialize($%s); $%s=%s;",
+	if(!pfc_evalf(__func__, "$%s=unserialize($%s); if(!$%s) $%s=null; else { if(isset(%s)) $%s=%s; else $%s=null; }",
 				UNSERIALIZE_PHP_TARGET_OBJECT,
 				UNSERIALIZE_PHP_TARGET_STRING,
+
+				// if
+				UNSERIALIZE_PHP_TARGET_OBJECT,
 				UNSERIALIZE_PHP_TARGET_OUTPUT_VARIABLE,
-				args->args[1]
+
+				// else
+				args->args[1], // if(isset)
+
+				UNSERIALIZE_PHP_TARGET_OUTPUT_VARIABLE,
+				args->args[1],
+				
+				UNSERIALIZE_PHP_TARGET_OUTPUT_VARIABLE
 				))
 	{
-		*is_null = 1;
-		*error = 1;
+		strcpy(error,"eval return error.");
+		php_embed_shutdown(TSRMLS_C);
+		DEBUG_MSG("eval fail\n");
 		return 0;
 	}
 	
 	if (!pfc_get_string(UNSERIALIZE_PHP_TARGET_OUTPUT_VARIABLE,
 				value,
 				sizeof(UNSERIALIZE_PHP_TARGET_OUTPUT_VARIABLE))) {
-		*is_null = 1;
-		*error = 1;
+		strcpy(error,"can't get output.");
+		php_embed_shutdown(TSRMLS_C);
+		DEBUG_MSG("get fail\n");
 		return 0;
 	}
-	
+
 	*length = strlen(value->c_str());
 	if(*length==0)
 	{
 		*is_null = 1;
+		php_embed_shutdown(TSRMLS_C);
 		return 0;
 	}
+	
 	PHP_EMBED_END_BLOCK();
 
 	return (char*)value->c_str();
