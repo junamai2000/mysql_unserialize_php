@@ -12,6 +12,7 @@
 #include <php_embed.h>
 #include "pfc.h"
 
+#define DEBUG
 #ifdef DEBUG
 	#define DEBUG_MSG(msg) FILE *fp=fopen("/tmp/unserialize_php_debug","a+");\
 	fprintf(fp, msg); \
@@ -72,7 +73,9 @@ char *unserialize_php(UDF_INIT *initid, UDF_ARGS *args, char *result, unsigned l
 			sizeof(UNSERIALIZE_PHP_TARGET_STRING),
 			args->lengths[0]);
 
-	if(!pfc_evalf(__func__, "$%s=unserialize($%s); if(!$%s) $%s=null; else { if(isset(%s)) $%s=%s; else $%s=null; }",
+	if(!pfc_evalf(__func__, "$%s=unserialize($%s); if(!$%s) $%s=null; else { "
+				"if(isset(%s) && !is_resource(%s) && !is_object(%s) && !is_null(%s) && !is_array(%s)) {"
+				"$%s=%s; } else { $%s=null; }}",
 				UNSERIALIZE_PHP_TARGET_OBJECT,
 				UNSERIALIZE_PHP_TARGET_STRING,
 
@@ -82,6 +85,10 @@ char *unserialize_php(UDF_INIT *initid, UDF_ARGS *args, char *result, unsigned l
 
 				// else
 				args->args[1], // if(isset)
+				args->args[1], // if(is_resource)
+				args->args[1], // if(is_object)
+				args->args[1], // if(is_null)
+				args->args[1], // if(is_array)
 
 				UNSERIALIZE_PHP_TARGET_OUTPUT_VARIABLE,
 				args->args[1],
